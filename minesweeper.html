@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>踩地雷</title>
+<title>反向踩地雷</title>
 <style>
   :root {
     --bg: #eef1f5;
@@ -94,7 +94,7 @@
   .cell.open { background: var(--open); cursor: default; }
   .cell.boom { background: var(--boom); }
   .cell.wrong { background: #fbbf24; }
-  .n1 { color: #2563eb; } .n2 { color: #16a34a; } .n3 { color: #dc2626; }
+  .n0 { color: #e11d48; } .n1 { color: #2563eb; } .n2 { color: #16a34a; } .n3 { color: #dc2626; }
   .n4 { color: #7c3aed; } .n5 { color: #b45309; } .n6 { color: #0891b2; }
   .n7 { color: #374151; } .n8 { color: #9ca3af; }
   @media (prefers-color-scheme: dark) {
@@ -115,7 +115,8 @@
 </style>
 </head>
 <body>
-  <h1>💣 踩地雷</h1>
+  <h1>🔄 反向踩地雷</h1>
+  <p class="hint" style="margin:-8px 0 14px;text-align:center">數字代表周圍「沒有地雷」的格子數（邊角格子周圍本來就比較少格）</p>
 
   <div class="controls">
     <button data-level="easy" class="active">初級 9×9</button>
@@ -140,7 +141,7 @@
     <div class="board-wrap"><div class="board" id="board"></div></div>
     <div class="footer">
       <button id="flagMode">🚩 插旗模式：關</button>
-      <span class="hint">左鍵翻開・右鍵插旗・點數字快速翻開</span>
+      <span class="hint">左鍵翻開・右鍵插旗・點數字快速翻開・空白格＝周圍全安全</span>
     </div>
   </div>
   <div id="msg"></div>
@@ -177,7 +178,7 @@ function neighbors(i) {
 function newGame(cfg = current) {
   current = cfg;
   W = cfg.w; H = cfg.h; M = Math.min(cfg.m, W * H - 9);
-  cells = Array.from({ length: W * H }, () => ({ mine: false, open: false, flag: false, n: 0 }));
+  cells = Array.from({ length: W * H }, () => ({ mine: false, open: false, flag: false, n: 0, s: 0 }));
   firstClick = true; over = false; flags = 0; opened = 0; seconds = 0;
   clearInterval(timer); timer = null;
   faceEl.textContent = '🙂'; msgEl.textContent = '';
@@ -206,7 +207,12 @@ function placeMines(safe) {
     [pool[k], pool[r]] = [pool[r], pool[k]];
     cells[pool[k]].mine = true;
   }
-  cells.forEach((c, i) => { c.n = neighbors(i).filter(j => cells[j].mine).length; });
+  // n：周圍地雷數（內部邏輯用）；s：周圍安全格數（顯示給玩家看）
+  cells.forEach((c, i) => {
+    const nb = neighbors(i);
+    c.n = nb.filter(j => cells[j].mine).length;
+    c.s = nb.length - c.n;
+  });
 }
 
 function updateMines() { minesEl.textContent = pad(M - flags); }
@@ -227,7 +233,7 @@ function reveal(i) {
     c.open = true; opened++;
     c.el.classList.add('open');
     if (c.mine) return lose(k);
-    if (c.n) { c.el.textContent = c.n; c.el.classList.add('n' + c.n); }
+    if (c.n) { c.el.textContent = c.s; c.el.classList.add('n' + c.s); }
     else neighbors(k).forEach(j => { if (!cells[j].open) stack.push(j); });
   }
   return true;
@@ -239,7 +245,7 @@ function openCell(i) {
   if (firstClick) { placeMines(i); firstClick = false; startTimer(); }
   if (c.flag) return;
   if (c.open) {
-    // 和弦：周圍旗數等於數字時，翻開其餘格子
+    // 和弦：周圍旗數等於地雷數（周圍格數 − 顯示數字）時，翻開其餘格子
     if (!c.n) return;
     const nb = neighbors(i);
     if (nb.filter(j => cells[j].flag).length !== c.n) return;
